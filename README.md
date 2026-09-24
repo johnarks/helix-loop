@@ -81,7 +81,21 @@ Full deep-dive: [`docs/WORKFLOW.md`](docs/WORKFLOW.md)
 
 ## Setup
 
-**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (skills, subagents, and hooks). A vision-capable model for the UI gate (any model with strong spatial awareness — the original used Gemini; the skill is model-agnostic).
+**One-line setup for any agent.** Give your AI agent (Claude Code, Codex, or anything else) this repo link and say:
+
+> *"Install all the skills in this repo into my current project and confirm
+> they're set up. Route my future feature requests to the orchestrator from
+> now on."*
+
+The agent follows [`INSTALL.md`](INSTALL.md) — an idempotent installer
+(`install.sh`) handles Claude Code and Codex, reports what's already
+installed, wires the stop hook, and drops a routing block into your
+project's `CLAUDE.md`/`AGENTS.md` so every future feature request goes
+through the loop automatically. That's the whole setup conversation.
+
+**Manual setup** (if you'd rather do it yourself):
+
+**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (skills, subagents, and hooks). A vision-capable model for the UI gate (any model with strong spatial awareness — the original used Gemini; the skill is model-agnostic). Codex works too, minus the stop hook (see FAQ).
 
 **Install (2 minutes):**
 
@@ -153,7 +167,10 @@ Or invoke the skill directly and describe the work in plain language. The orches
 | `hooks/stop-gate-check.sh` | Stop hook — blocks the agent from quitting until gates pass (exit code 2) |
 | `viewer/index.html` | Checkpoint plan viewer (dependency-free, runs in a browser) |
 | `schemas/checkpoints.schema.json` | JSON schema for the checkpoint plan |
+| `install.sh` | Idempotent installer: Claude Code and/or Codex, project or user scope; skips what's already installed |
+| `INSTALL.md` | Agent runbook: what to do when handed this repo link ("install the skills, set up this project") |
 | `templates/` | Example checkpoints file, `design.md` template, `learnings.md` template |
+| `templates/agent-routing.md` | Routing block appended to `CLAUDE.md`/`AGENTS.md` — future feature requests go to the orchestrator |
 | `docs/WORKFLOW.md` | The loop explained in depth |
 | `docs/ORIGINAL-RESEARCH.md` | Sources: Shopify's Helix writeup, the video, and open alternatives |
 
@@ -175,7 +192,7 @@ Or invoke the skill directly and describe the work in plain language. The orches
 
 **Which model does the UI gate need?** Any vision-capable model with good spatial awareness. The original used Gemini; configure whichever you have in the ui-reviewer skill.
 
-**Will this work outside Claude Code?** The concepts transfer anywhere (checkpoints, gates, fresh contexts, adversarial review). The skills and hook are written for Claude Code's skills/subagents/hooks system.
+**Will this work outside Claude Code?** Yes, with one caveat. The skills are plain `SKILL.md` Markdown — Codex loads them from `~/.codex/skills/` and any agent can follow them by reading the files directly. Checkpoints, the four gates, fresh-context subagents, and learnings memory all transfer. The caveat: only Claude Code has the Stop hook (exit code 2 physically blocks quitting), so on other agents gate enforcement is by orchestrator convention rather than structural. `install.sh` sets up both agents; see `INSTALL.md`.
 
 **How is this different from just "use subagents and review"?** The difference is structural enforcement: gates *block*, the hook *prevents quitting*, checkpoints are *small by construction*, and learnings *accumulate*. It's a loop that converges, not advice that gets forgotten.
 

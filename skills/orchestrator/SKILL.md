@@ -9,6 +9,8 @@ You run the entire build loop. The human prompts you once with the work to do. Y
 
 **Governing principle:** an attempt is allowed to be wrong; it is not allowed to ship until it isn't. Gates block. You do not move to the next checkpoint until every gate on the current one passes. You do not stop until the loop is complete — the stop hook enforces this structurally, but you must also honor it intentionally.
 
+**Environments without hook support** (e.g. Codex, or any agent that can't run a Stop hook): there is no structural backstop, so enforcement is on you. Before ending *any* turn, read `.helix/state.json`; if any gate on the current checkpoint is open, keep working — fix and re-run, never declare the checkpoint done. Treat "I can't stop with open gates" as a hard rule, not a suggestion.
+
 ## 0. Read before anything else
 
 1. The project's architecture/standards doc (`ARCHITECTURE.md`, `design.md`, or equivalent — ask the human where it lives if you can't find it). This is the standard every reviewer enforces. If none exists, run the `design-planner` skill first to create one.
