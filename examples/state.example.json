@@ -1,0 +1,1 @@
+{"checkpoints":{"cp-01":{"gates":{"adversarial":"passed","behavior":"passed","human":"passed","ui":"passed"},"status":"done"},"cp-02":{"gates":{"adversarial":"pending","behavior":"passed","human":"pending","ui":"pending"},"status":"in_progress"}},"current_checkpoint":"cp-02"}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helix Loop — Checkpoint Plan Viewer</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --txt:#e8eaf0; --dim:#9aa3b2;
+          --ok:#3fb96b; --run:#4aa8ff; --wait:#8a93a6; --block:#ff5d5d; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--txt); font:15px/1.55 system-ui,sans-serif;
+         margin:0; padding:32px 20px 80px; }
+  main { max-width:860px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--dim); margin:0 0 24px; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:16px 0 28px; }
+  .bar > div { height:100%; background:var(--ok); width:0; transition:width .3s; }
+  .load { border:2px dashed var(--line); border-radius:12px; padding:28px; text-align:center;
+          color:var(--dim); margin-bottom:28px; }
+  .load input { margin-top:12px; }
+  .cp { background:var(--card); border:1px solid var(--line); border-radius:12px;
+        padding:18px 20px; margin-bottom:14px; }
+  .cp.done { opacity:.75; border-left:4px solid var(--ok); }
+  .cp.active { border-left:4px solid var(--run); }
+  .cp.blocked { border-left:4px solid var(--block); }
+  .head { display:flex; gap:12px; align-items:baseline; }
+  .num { font-weight:700; color:var(--dim); min-width:44px; }
+  .title { font-weight:650; font-size:17px; flex:1; }
+  .pill { font-size:12px; padding:2px 10px; border-radius:999px; white-space:nowrap; }
+  .pill.done { background:#12351f; color:var(--ok); }
+  .pill.in_progress { background:#12283f; color:var(--run); }
+  .pill.planned { background:#22262f; color:var(--wait); }
+  .desc { color:var(--dim); margin:10px 0 12px 56px; }
+  .gates { display:flex; flex-wrap:wrap; gap:8px; margin-left:56px; }
+  .gate { font-size:12.5px; padding:4px 10px; border-radius:8px; background:#22262f; color:var(--dim); }
+  .gate.passed { background:#12351f; color:var(--ok); }
+  .gate.failed { background:#3f1616; color:var(--block); }
+  .gate.skipped { background:#22262f; color:var(--wait); text-decoration:line-through; }
+  .done-criteria { margin:12px 0 0 56px; font-size:13.5px; color:var(--dim); }
+  .done-criteria li { margin:2px 0; }
+  .noui { margin-left:56px; font-size:12.5px; color:var(--wait); margin-top:8px; }
+  #err { color:var(--block); margin-bottom:16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Helix Loop — Checkpoint Plan</h1>
+  <p class="sub">Review the <em>sequence</em>: does each step build on the last, simplest first? Approve or request changes in chat.</p>
+
+  <div class="load" id="drop">
+    <div>Drop your <code>.helix/checkpoints.json</code> here, or</div>
+    <input type="file" id="file" accept=".json,application/json">
+    <div style="margin-top:8px;font-size:13px">…or serve the project dir over HTTP and it will try <code>./checkpoints.json</code> automatically.</div>
+  </div>
+  <div id="err"></div>
+  <div class="bar"><div id="barfill"></div></div>
+  <div id="list"></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const GATE_LABELS = { behavior:"Behavior tests", ui:"UI review", adversarial:"Adversarial review", human:"Human approval" };
+
+function render(plan) {
+  const cps = plan.checkpoints || [];
+  const list = $("list"); list.innerHTML = "";
+  const done = cps.filter(c => (c.status||"planned") === "done").length;
+  $("barfill").style.width = cps.length ? (100*done/cps.length)+"%" : "0";
+
+  cps.forEach((c, i) => {
+    const status = c.status || "planned";
+    const gates = c.gates || {};
+    const failed = Object.values(gates).includes("failed");
+    const cls = status === "done" ? "done" : failed ? "blocked" : (i === done ? "active" : "");
+
+    const el = document.createElement("div");
+    el.className = "cp " + cls;
+
+    const gatesHtml = Object.keys(GATE_LABELS).map(g => {
+      if (g === "ui" && c.needs_ui_gate === false) return "";
+      const s = gates[g] || "pending";
+      const label = GATE_LABELS[g] + (s === "skipped" ? " (skipped)" : "");
+      return `<span class="gate ${s}">${label}: ${s}</span>`;
+    }).join("");
+
+    const criteria = (c.done_criteria || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+
+    el.innerHTML = `
+      <div class="head">
+        <span class="num">${String(i+1).padStart(2,"0")}</span>
+        <span class="title">${escapeHtml(c.title || c.id)}</span>
+        <span class="pill ${status}">${status.replace("_"," ")}</span>
+      </div>
+      ${c.description ? `<div class="desc">${escapeHtml(c.description)}</div>` : ""}
+      <div class="gates">${gatesHtml}</div>
+      ${c.needs_ui_gate === false ? `<div class="noui">UI gate not applicable (logic-only checkpoint)</div>` : ""}
+      ${criteria ? `<ul class="done-criteria"><b>Done when:</b>${criteria}</ul>` : ""}`;
+    list.appendChild(el);
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function fail(msg){ $("err").textContent = msg; }
+
+function loadFile(f){
+  const r = new FileReader();
+  r.onload = () => { try { render(JSON.parse(r.result)); $("err").textContent=""; }
+                       catch(e){ fail("Couldn't parse that file as JSON: " + e.message); } };
+  r.readAsText(f);
+}
+$("file").addEventListener("change", e => e.target.files[0] && loadFile(e.target.files[0]));
+const drop = $("drop");
+["dragover","dragenter"].forEach(ev => drop.addEventListener(ev, e => e.preventDefault()));
+drop.addEventListener("drop", e => { e.preventDefault(); e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]); });
+
+// Try relative fetch (works when served over http, not file://)
+fetch("checkpoints.json").then(r => { if(!r.ok) throw 0; return r.json(); })
+  .then(j => { render(j); drop.style.display = "none"; }).catch(()=>{});
+</script>
+</body>
+</html>

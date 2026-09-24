@@ -1,0 +1,1 @@
+{"$schema":"https://docs.anthropic.com/en/docs/claude-code/settings-schema.json","hooks":{"Stop":[{"hooks":[{"command":"<REPO_PATH>/hooks/stop-gate-check.sh","type":"command"}]}]}}
